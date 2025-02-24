@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>VOT Live AI System</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <!-- Using Roboto for a professional look -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+  <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+  <!-- Load TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+
+  <style>
+    /* Global Styles */
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      background-color: #f0f8ff;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: #004d99;
+      color: #fff;
+      padding: 15px;
+      text-align: center;
+      font-size: 28px;
+    }
+    .demo-content {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    /* Login Section */
+    #loginSection {
+      margin-top: 20px;
+      text-align: center;
+    }
+    #loginSection input {
+      padding: 10px;
+      font-size: 18px;
+      width: 250px;
+      margin: 10px;
+      border: 2px solid #ccc;
+      border-radius: 5px;
+    }
+    #loginSection button {
+      padding: 10px 20px;
+      font-size: 18px;
+      cursor: pointer;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    #loginSection button:hover {
+      background-color: #45a049;
+    }
+    /* Media Container */
+    #mediaContainer {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    /* Video Styling */
+    #videoElement {
+      width: 320px;
+      height: 240px;
+      border-radius: 10px;
+      border: 2px solid #004d99;
+      background-color: #000;
+    }
+    /* Step Image Styling */
+    #stepImage {
+      width: 320px;
+      height: 240px;
+      border-radius: 10px;
+      border: 2px solid #004d99;
+      opacity: 0;
+      transition: opacity 1s ease-in-out;
+    }
+    /* Hidden Canvas */
+    #canvasElement {
+      display: none;
+    }
+    /* Start VOT Button */
+    #startVOTButton {
+      margin-top: 20px;
+      padding: 12px 24px;
+      font-size: 20px;
+      background-color: #4CAF50;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: transform 0.3s ease, background-color 0.3s ease;
+    }
+    #startVOTButton:hover {
+      transform: scale(1.05);
+      background-color: #45a049;
+    }
+    /* End Session Button (centered) */
+    #endSessionButton {
+      margin: 20px auto;
+      display: block;
+      padding: 12px 24px;
+      font-size: 20px;
+      background-color: #d9534f;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: transform 0.3s ease, background-color 0.3s ease;
+      display: none;
+    }
+    #endSessionButton:hover {
+      transform: scale(1.05);
+      background-color: #c9302c;
+    }
+    /* Instruction Message */
+    #instruction {
+      margin-top: 10px;
+      font-size: 18px;
+      color: #333;
+      opacity: 0;
+      animation: fadeIn 1s forwards;
+    }
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
+    /* Progress Bar Container (centered) */
+    #progressContainer {
+      width: 80%;
+      max-width: 600px;
+      height: 25px;
+      background-color: #e0e0e0;
+      border-radius: 12px;
+      margin-top: 20px;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      display: none;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    /* Animated Progress Bar */
+    #progressBar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #004d99, #4CAF50);
+      border-radius: 12px;
+      transition: width 1s ease-in-out;
+    }
+    /* Animated Prompt Text with Color Transition */
+    #prompt {
+      margin-top: 10px;
+      font-size: 24px;
+      text-align: center;
+      color: #004d99;
+      opacity: 0;
+      transition: opacity 1s ease-in-out, transform 0.5s ease;
+    }
+    @keyframes colorChange {
+      0% { color: #004d99; }
+      50% { color: #4CAF50; }
+      100% { color: #004d99; }
+    }
+    .animate-prompt {
+      animation: colorChange 3s infinite;
+    }
+    /* Chat Log for Gemini Responses (centered) */
+    #chatLog {
+      margin-top: 20px;
+      width: 80%;
+      max-width: 600px;
+      background-color: #e6f2ff;
+      border: 1px solid #004d99;
+      border-radius: 5px;
+      padding: 10px;
+      text-align: center;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+      #mediaContainer {
+        flex-direction: column;
+      }
+      #videoElement, #stepImage {
+        width: 90%;
+        height: auto;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>VOT Live AI System</header>
+  <div class="demo-content">
+    <!-- Patient Login Section -->
+    <div id="loginSection">
+      <h2>Patient Login</h2>
+      <input type="text" id="patientIDInput" placeholder="Enter your Patient ID" />
+      <button id="loginButton">Login</button>
+      <div id="loginError" style="color:red;"></div>
+    </div>
+
+    <!-- VOT Session UI (hidden until login) -->
+    <div id="votSessionUI" style="display:none;">
+      <!-- Media Container: Video and Step Image -->
+      <div id="mediaContainer">
+        <video id="videoElement" autoplay></video>
+        <img id="stepImage" src="" alt="Step Image">
+      </div>
+      <!-- Hidden Canvas for Capturing Frames -->
+      <canvas id="canvasElement"></canvas>
+      <!-- Start VOT Button & Instruction (shown after login) -->
+      <button id="startVOTButton">Start VOT</button>
+      <div id="instruction">You can talk directly to the VOT AI assistant now.</div>
+      <!-- Progress Bar -->
+      <div id="progressContainer">
+        <div id="progressBar"></div>
+      </div>
+      <!-- Prompt Display -->
+      <div id="prompt" style="display:none;"></div>
+      <!-- Chat Log for Gemini Responses -->
+      <div id="chatLog"></div>
+      <!-- End Session Button -->
+      <button id="endSessionButton">Click to End Session</button>
+    </div>
+  </div>
+
+  <script defer>
+    /***** Configuration: Replace these URLs with your deployed Apps Script endpoints *****/
+    const patientValidationURL = "https://script.google.com/macros/s/AKfycbwZvJJgLwiiiect_23ZECAbf_BKhSOT7_EHh8BuEz6ZC62lQLSu_1uJKTz3LNhoia8T/exec"; // GET endpoint for validation
+    const logsURL = "https://script.google.com/macros/s/AKfycbz079bDHiYCkbJryi-x6E59mCtkEJ5OKiZTvaaMGySTadO_NPQP4KCjaF_pfIxbuhXXgQ/exec"; // POST endpoint for logs
+
+    /***** Global Variables *****/
+    let currentPatientID = "";
+    let stream = null;
+    let currentFrameB64;
+    let webSocket = null;
+    let audioContext = null;
+    let processor = null;
+    let pcmData = [];
+    let audioInputContext;
+    let workletNode;
+    let initialized = false;
+    let tmModel;
+    let classificationInterval;
+    // New variable for session start time
+    let sessionStartTime = null;
+    
+    // VOT Steps, expected labels, and corresponding images
+    const steps = [
+      "Show your face in the camera",
+      "Show the pill in your hand",
+      "Put the pill in your mouth",
+      "Open mouth & show tongue to show it's empty"
+    ];
+    const expectedLabels = ["Face", "Pill in hand", "Pill in mouth", "Empty mouth"];
+    const stepImages = ["face.jpg", "pill_in_hand.jpg", "pill_in_mouth.jpg", "mouth_empty.jpg"];
+    let currentStep = 0;
+    
+    /***** Patient Login Functions *****/
+    const loginButton = document.getElementById("loginButton");
+    const patientIDInput = document.getElementById("patientIDInput");
+    const loginError = document.getElementById("loginError");
+    const loginSection = document.getElementById("loginSection");
+    const votSessionUI = document.getElementById("votSessionUI");
+
+    // Allow "Enter" key press for login
+    patientIDInput.addEventListener("keyup", function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        loginButton.click();
+      }
+    });
+
+    loginButton.addEventListener("click", async () => {
+      const inputID = patientIDInput.value.trim();
+      if (!inputID) {
+        loginError.innerText = "Please enter a Patient ID.";
+        return;
+      }
+      try {
+        const response = await fetch(patientValidationURL + "?patientID=" + encodeURIComponent(inputID));
+        const data = await response.json();
+        if (data.status === "success") {
+          currentPatientID = inputID;
+          loginSection.style.display = "none";
+          votSessionUI.style.display = "block";
+          displayMessage("Welcome, " + data.patientName + "!");
+          logEvent("Access", "Login successful");
+        } else {
+          loginError.innerText = data.message || "Invalid Patient ID.";
+        }
+      } catch (error) {
+        loginError.innerText = "Error validating Patient ID.";
+        console.error(error);
+      }
+    });
+
+    /***** VOT Logs Function *****/
+    async function logEvent(outcome, failureReason = "", sessionDuration = "") {
+      try {
+        const logData = {
+          patientID: currentPatientID,
+          outcome: outcome,
+          failureReason: failureReason,
+          sessionDuration: sessionDuration
+        };
+        await fetch(logsURL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(logData)
+        });
+        console.log("Log event sent:", logData);
+      } catch (error) {
+        console.error("Error logging event:", error);
+      }
+    }
+
+    /***** Media Functions *****/
+    async function startWebcam() {
+      try {
+        const constraints = { video: { width: { max: 640 }, height: { max: 480 } } };
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        document.getElementById("videoElement").srcObject = stream;
+      } catch (err) {
+        console.error("Error accessing the webcam:", err);
+      }
+    }
+
+    function captureImage() {
+      if (stream) {
+        const canvas = document.getElementById("canvasElement");
+        const context = canvas.getContext("2d");
+        canvas.width = document.getElementById("videoElement").videoWidth;
+        canvas.height = document.getElementById("videoElement").videoHeight;
+        context.drawImage(document.getElementById("videoElement"), 0, 0, canvas.width, canvas.height);
+        const imageData = canvas.toDataURL("image/jpeg").split(",")[1].trim();
+        currentFrameB64 = imageData;
+      }
+    }
+
+    async function startAudioInput() {
+      audioContext = new AudioContext({ sampleRate: 16000 });
+      const micStream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, sampleRate: 16000 }
+      });
+      const source = audioContext.createMediaStreamSource(micStream);
+      processor = audioContext.createScriptProcessor(4096, 1, 1);
+      processor.onaudioprocess = (e) => {
+        const inputData = e.inputBuffer.getChannelData(0);
+        const pcm16 = new Int16Array(inputData.length);
+        for (let i = 0; i < inputData.length; i++) {
+          pcm16[i] = inputData[i] * 0x7fff;
+        }
+        pcmData.push(...pcm16);
+      };
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+      setInterval(recordChunk, 3000);
+    }
+
+    function recordChunk() {
+      const buffer = new ArrayBuffer(pcmData.length * 2);
+      const view = new DataView(buffer);
+      pcmData.forEach((value, index) => {
+        view.setInt16(index * 2, value, true);
+      });
+      const base64 = btoa(String.fromCharCode.apply(null, new Uint8Array(buffer)));
+      sendVoiceMessage(base64);
+      pcmData = [];
+    }
+
+    async function initializeAudioContext() {
+      if (initialized) return;
+      audioInputContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+      await audioInputContext.audioWorklet.addModule("pcm-processor.js");
+      workletNode = new AudioWorkletNode(audioInputContext, "pcm-processor");
+      workletNode.connect(audioInputContext.destination);
+      initialized = true;
+    }
+
+    function base64ToArrayBuffer(base64) {
+      const binaryString = window.atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes.buffer;
+    }
+
+    function convertPCM16LEToFloat32(pcmData) {
+      const inputArray = new Int16Array(pcmData);
+      const float32Array = new Float32Array(inputArray.length);
+      for (let i = 0; i < inputArray.length; i++) {
+        float32Array[i] = inputArray[i] / 32768;
+      }
+      return float32Array;
+    }
+
+    async function injestAudioChuckToPlay(base64AudioChunk) {
+      try {
+        if (!initialized) await initializeAudioContext();
+        if (audioInputContext.state === "suspended") await audioInputContext.resume();
+        const arrayBuffer = base64ToArrayBuffer(base64AudioChunk);
+        const float32Data = convertPCM16LEToFloat32(arrayBuffer);
+        workletNode.port.postMessage(float32Data);
+      } catch (error) {
+        console.error("Error processing audio chunk:", error);
+      }
+    }
+
+    function displayMessage(message) {
+      console.log(message);
+      const chatLog = document.getElementById("chatLog");
+      const newParagraph = document.createElement("p");
+      newParagraph.textContent = message;
+      newParagraph.style.textAlign = "center";
+      chatLog.appendChild(newParagraph);
+    }
+
+    /***** Gemini Integration *****/
+    function sendVoiceMessage(b64PCM) {
+      if (webSocket == null) {
+        console.log("WebSocket not initialized");
+        return;
+      }
+      const payload = {
+        realtime_input: {
+          media_chunks: [
+            { mime_type: "audio/pcm", data: b64PCM },
+            { mime_type: "image/jpeg", data: currentFrameB64 }
+          ]
+        }
+      };
+      webSocket.send(JSON.stringify(payload));
+      console.log("Sent voice payload:", payload);
+    }
+
+    function sendChatMessage(text, imageData = null) {
+      const payload = { chat_message: { text: text } };
+      if (imageData) {
+        payload.chat_message.image = imageData;
+      }
+      webSocket.send(JSON.stringify(payload));
+      console.log("Sent chat message:", payload);
+    }
+
+    function sendInitialSetupMessage() {
+      const setup_client_message = {
+        setup: {
+          generation_config: { response_modalities: ["AUDIO"] }
+        }
+      };
+      webSocket.send(JSON.stringify(setup_client_message));
+    }
+
+    function sendGreetingMessage() {
+      const greeting = "Hello, welcome to your VOT session. I am here to guide you. Feel free to speak at any time.";
+      const payload = { chat_message: { text: greeting, image: currentFrameB64 } };
+      webSocket.send(JSON.stringify(payload));
+      console.log("Sent greeting message:", payload);
+    }
+
+    function connect() {
+      webSocket = new WebSocket("ws://localhost:9080");
+      webSocket.onclose = (event) => {
+        console.log("WebSocket closed:", event);
+        alert("Connection closed");
+      };
+      webSocket.onerror = (event) => {
+        console.log("WebSocket error:", event);
+      };
+      webSocket.onopen = (event) => {
+        console.log("WebSocket open:", event);
+        sendInitialSetupMessage();
+        setTimeout(sendGreetingMessage, 2000);
+      };
+      webSocket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.text) {
+          displayMessage("GEMINI: " + data.text);
+        }
+        if (data.audio) {
+          injestAudioChuckToPlay(data.audio);
+        }
+      };
+    }
+
+    /***** Teachable Machine Integration *****/
+    async function loadTeachableMachineModel() {
+      try {
+        tmModel = await tf.loadLayersModel('https://teachablemachine.withgoogle.com/models/sNq4XZQSz/model.json');
+        console.log("Teachable Machine model loaded");
+      } catch (error) {
+        console.error("Error loading Teachable Machine model:", error);
+      }
+    }
+
+    async function classifyFrame() {
+      if (!tmModel) return;
+      const videoTensor = tf.browser.fromPixels(document.getElementById("videoElement"))
+        .resizeBilinear([224, 224])
+        .toFloat()
+        .div(255.0)
+        .expandDims();
+      const prediction = await tmModel.predict(videoTensor);
+      const predictedIndex = prediction.argMax(1).dataSync()[0];
+      const confidence = prediction.max().dataSync()[0];
+      videoTensor.dispose();
+
+      if (predictedIndex === currentStep && confidence > 0.9) {
+        currentStep++;
+        updateProgress();
+        if (currentStep < steps.length) {
+          updatePrompt(steps[currentStep]);
+          updateStepImage(stepImages[currentStep]);
+        } else {
+          updatePrompt("VOT Session Completed Successfully!");
+          clearInterval(classificationInterval);
+          sendChatMessage("VOT Session completed successfully.");
+          logEvent("Completed", "", computeSessionDuration());
+          // Show End Session button (centered)
+          document.getElementById("endSessionButton").style.display = "block";
+        }
+      }
+    }
+
+    function updateProgress() {
+      const percentage = ((currentStep) / steps.length) * 100;
+      document.getElementById("progressBar").style.width = percentage + "%";
+    }
+
+    function updatePrompt(text) {
+      const promptDiv = document.getElementById("prompt");
+      promptDiv.style.opacity = 0;
+      setTimeout(() => {
+        promptDiv.innerText = text;
+        promptDiv.style.opacity = 1;
+        promptDiv.classList.add("animate-prompt");
+      }, 500);
+    }
+
+    function updateStepImage(imageSrc) {
+      const stepImage = document.getElementById("stepImage");
+      stepImage.style.opacity = 0;
+      setTimeout(() => {
+        stepImage.src = imageSrc;
+        stepImage.style.opacity = 1;
+      }, 500);
+    }
+
+    // New: Function to compute session duration in seconds
+    function computeSessionDuration() {
+      const endTime = new Date();
+      const durationMs = endTime - sessionStartTime;
+      const durationSec = Math.floor(durationMs / 1000);
+      return durationSec + " seconds";
+    }
+
+    function startVOTSession() {
+      logEvent("Started", "", "");
+      // Record session start time
+      sessionStartTime = new Date();
+      document.getElementById("startVOTButton").style.opacity = 0;
+      setTimeout(() => {
+        document.getElementById("startVOTButton").style.display = "none";
+      }, 500);
+      document.getElementById("instruction").style.opacity = 0;
+      setTimeout(() => {
+        document.getElementById("instruction").style.display = "none";
+      }, 500);
+      document.getElementById("progressContainer").style.display = "block";
+      document.getElementById("prompt").style.display = "block";
+      document.getElementById("stepImage").style.display = "block";
+      currentStep = 0;
+      document.getElementById("progressBar").style.width = "0%";
+      updatePrompt(steps[currentStep]);
+      updateStepImage(stepImages[currentStep]);
+      classificationInterval = setInterval(classifyFrame, 1000);
+    }
+
+    function endSession() {
+      logEvent("Ended", "Session closed by patient", computeSessionDuration());
+      window.close();
+      setTimeout(() => {
+        if (!window.closed) {
+          alert("Please close this window to end the session.");
+        }
+      }, 1000);
+    }
+
+    window.addEventListener("load", async () => {
+      await startWebcam();
+      await startAudioInput();
+      setInterval(captureImage, 3000);
+      connect();
+      await loadTeachableMachineModel();
+    });
+
+    document.getElementById("startVOTButton").addEventListener("click", startVOTSession);
+    document.getElementById("endSessionButton").addEventListener("click", endSession);
+  </script>
+</body>
+</html>
