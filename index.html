@@ -474,7 +474,7 @@
     }
 
     function connect() {
-      webSocket = new WebSocket("ws://localhost:9080");
+      webSocket = new WebSocket("wss://gemnirender.onrender.com");
       webSocket.onclose = (event) => {
         console.log("WebSocket closed:", event);
         alert("Connection closed");
