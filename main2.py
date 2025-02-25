@@ -14,14 +14,16 @@ client = genai.Client(
     http_options={'api_version': 'v1alpha'}
 )
 
-# Custom process_request to handle non-websocket requests gracefully (e.g., HEAD)
+# Get the port from environment variable (default to 9080)
+port = int(os.environ.get("PORT", 9080))
+
+# Custom process_request to handle non-WebSocket requests (e.g. HEAD)
 async def process_request(path, request_headers):
     if request_headers.get("Upgrade", "").lower() != "websocket":
-        # Return a simple HTTP 200 response with proper headers
+        # Return a minimal HTTP 200 response with proper headers
         return http.HTTPStatus.OK, [("Content-Type", "text/plain"), ("Content-Length", "2")], b"OK"
 
 async def gemini_session_handler(client_websocket: websockets.WebSocketServerProtocol):
-    """Handles the interaction with Gemini API within a websocket session."""
     try:
         config_message = await client_websocket.recv()
         config_data = json.loads(config_message)
@@ -96,9 +98,9 @@ async def gemini_session_handler(client_websocket: websockets.WebSocketServerPro
 
 async def main():
     async with websockets.serve(
-        gemini_session_handler, "0.0.0.0", 9080, process_request=process_request
+        gemini_session_handler, "0.0.0.0", port, process_request=process_request
     ):
-        print("Running websocket server on port 9080...")
+        print(f"Running websocket server on port {port}...")
         await asyncio.Future()  # Keep the server running indefinitely
 
 if __name__ == "__main__":
