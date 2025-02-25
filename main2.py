@@ -14,12 +14,11 @@ client = genai.Client(
     http_options={'api_version': 'v1alpha'}
 )
 
-# Custom process_request function to handle non-WebSocket HTTP requests (e.g., HEAD)
+# Custom process_request to handle non-websocket requests gracefully (e.g., HEAD)
 async def process_request(path, request_headers):
-    # Check if the "Upgrade" header is set to "websocket"
     if request_headers.get("Upgrade", "").lower() != "websocket":
-        # Return a simple HTTP 200 response with plain text
-        return http.HTTPStatus.OK, [("Content-Type", "text/plain")], b"OK"
+        # Return a simple HTTP 200 response with proper headers
+        return http.HTTPStatus.OK, [("Content-Type", "text/plain"), ("Content-Length", "2")], b"OK"
 
 async def gemini_session_handler(client_websocket: websockets.WebSocketServerProtocol):
     """Handles the interaction with Gemini API within a websocket session."""
