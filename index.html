@@ -252,7 +252,7 @@
     let initialized = false;
     let tmModel;
     let classificationInterval;
-    // New variable for session start time
+    // New variable to track session start time
     let sessionStartTime = null;
     
     // VOT Steps, expected labels, and corresponding images
@@ -431,6 +431,9 @@
     }
 
     /***** Gemini Integration *****/
+    // Set the WebSocket URL to your Render service. Use wss:// for secure connections.
+    const URL = "wss://gemnirender.onrender.com";
+    
     function sendVoiceMessage(b64PCM) {
       if (webSocket == null) {
         console.log("WebSocket not initialized");
@@ -474,7 +477,7 @@
     }
 
     function connect() {
-      webSocket = new WebSocket("wss://gemnirender.onrender.com");
+      webSocket = new WebSocket(URL);
       webSocket.onclose = (event) => {
         console.log("WebSocket closed:", event);
         alert("Connection closed");
