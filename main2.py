@@ -14,14 +14,18 @@ client = genai.Client(
     http_options={'api_version': 'v1alpha'}
 )
 
-# Get the port from environment variable (default to 9080)
+# Get the port from the environment variable (default to 9080)
 port = int(os.environ.get("PORT", 9080))
 
-# Custom process_request to handle non-WebSocket requests (e.g. HEAD)
+# Custom process_request: if the "Sec-WebSocket-Key" header is missing,
+# we assume this is a health check (e.g., HEAD request) and return a simple response.
 async def process_request(path, request_headers):
-    if request_headers.get("Upgrade", "").lower() != "websocket":
-        # Return a minimal HTTP 200 response with proper headers
-        return http.HTTPStatus.OK, [("Content-Type", "text/plain"), ("Content-Length", "2")], b"OK"
+    if "Sec-WebSocket-Key" not in request_headers:
+        # Return a simple HTTP 200 response with minimal headers
+        return http.HTTPStatus.OK, [
+            ("Content-Type", "text/plain"),
+            ("Content-Length", "2")
+        ], b"OK"
 
 async def gemini_session_handler(client_websocket: websockets.WebSocketServerProtocol):
     try:
