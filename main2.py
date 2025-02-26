@@ -10,18 +10,15 @@ import http
 os.environ['GOOGLE_API_KEY'] = 'AIzaSyDDUg7a80PHfYnIGoJKBpaeDVcPDfw8ySg'
 MODEL = "gemini-2.0-flash-exp"  # use your model ID
 
-client = genai.Client(
-    http_options={'api_version': 'v1alpha'}
-)
+client = genai.Client(http_options={'api_version': 'v1alpha'})
 
 # Get the port from the environment variable (default to 9080)
 port = int(os.environ.get("PORT", 9080))
 
-# Custom process_request: if the "Sec-WebSocket-Key" header is missing,
-# we assume this is a health check (e.g., HEAD request) and return a simple response.
+# Custom process_request: if the "Sec-WebSocket-Key" header is missing, 
+# assume this is a health check (e.g., HEAD request) and return a simple response.
 async def process_request(path, request_headers):
     if "Sec-WebSocket-Key" not in request_headers:
-        # Return a simple HTTP 200 response with minimal headers
         return http.HTTPStatus.OK, [
             ("Content-Type", "text/plain"),
             ("Content-Length", "2")
@@ -102,7 +99,9 @@ async def gemini_session_handler(client_websocket: websockets.WebSocketServerPro
 
 async def main():
     async with websockets.serve(
-        gemini_session_handler, "0.0.0.0", port, process_request=process_request
+        gemini_session_handler, "0.0.0.0", port,
+        process_request=process_request,
+        ping_interval=20, ping_timeout=20
     ):
         print(f"Running websocket server on port {port}...")
         await asyncio.Future()  # Keep the server running indefinitely
