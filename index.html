@@ -371,13 +371,26 @@
       setInterval(recordChunk, 3000);
     }
 
+    // Helper function to convert ArrayBuffer to Base64 in chunks
+    function arrayBufferToBase64(buffer) {
+      let binary = "";
+      const bytes = new Uint8Array(buffer);
+      const chunkSize = 5000; // Process in smaller chunks
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        let chunk = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode(...chunk);
+      }
+      return window.btoa(binary);
+    }
+
     function recordChunk() {
+      if (pcmData.length === 0) return;
       const buffer = new ArrayBuffer(pcmData.length * 2);
       const view = new DataView(buffer);
-      pcmData.forEach((value, index) => {
-        view.setInt16(index * 2, value, true);
-      });
-      const base64 = btoa(String.fromCharCode.apply(null, new Uint8Array(buffer)));
+      for (let i = 0; i < pcmData.length; i++) {
+        view.setInt16(i * 2, pcmData[i], true);
+      }
+      const base64 = arrayBufferToBase64(buffer);
       sendVoiceMessage(base64);
       pcmData = [];
     }
