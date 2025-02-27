@@ -371,14 +371,13 @@
       setInterval(recordChunk, 3000);
     }
 
-    // Helper function to convert ArrayBuffer to Base64 in chunks
+    // Helper function to convert ArrayBuffer to Base64 using a loop
     function arrayBufferToBase64(buffer) {
       let binary = "";
       const bytes = new Uint8Array(buffer);
-      const chunkSize = 5000; // Process in smaller chunks
-      for (let i = 0; i < bytes.length; i += chunkSize) {
-        let chunk = bytes.subarray(i, i + chunkSize);
-        binary += String.fromCharCode(...chunk);
+      const len = bytes.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
       }
       return window.btoa(binary);
     }
