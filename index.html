@@ -252,7 +252,7 @@
     let initialized = false;
     let tmModel;
     let classificationInterval;
-    // New variable to track session start time
+    // Record session start time
     let sessionStartTime = null;
     
     // VOT Steps, expected labels, and corresponding images
@@ -431,7 +431,7 @@
     }
 
     /***** Gemini Integration *****/
-    // Set the WebSocket URL to PieHost
+    // Set WebSocket URL to your PieSocket endpoint
     const URL = "wss://s14182.blr1.piesocket.com/v3/1?api_key=AKsu6asGbktozdAbrTU7DLYgoV48Y9aeHpWqqB3d&notify_self=1";
     
     function sendVoiceMessage(b64PCM) {
