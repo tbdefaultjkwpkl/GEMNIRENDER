@@ -104,6 +104,24 @@
       transform: scale(1.05);
       background-color: #45a049;
     }
+    /* End Session Button (centered) */
+    #endSessionButton {
+      margin: 20px auto;
+      display: block;
+      padding: 12px 24px;
+      font-size: 20px;
+      background-color: #d9534f;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: transform 0.3s ease, background-color 0.3s ease;
+      display: none;
+    }
+    #endSessionButton:hover {
+      transform: scale(1.05);
+      background-color: #c9302c;
+    }
     /* Instruction Message */
     #instruction {
       margin-top: 10px;
@@ -115,7 +133,7 @@
     @keyframes fadeIn {
       to { opacity: 1; }
     }
-    /* Progress Bar Container */
+    /* Progress Bar Container (centered) */
     #progressContainer {
       width: 80%;
       max-width: 600px;
@@ -154,7 +172,7 @@
     .animate-prompt {
       animation: colorChange 3s infinite;
     }
-    /* Chat Log for Gemini Responses */
+    /* Chat Log for Gemini Responses (centered) */
     #chatLog {
       margin-top: 20px;
       width: 80%;
@@ -211,6 +229,8 @@
       <div id="prompt" style="display:none;"></div>
       <!-- Chat Log for Gemini Responses -->
       <div id="chatLog"></div>
+      <!-- End Session Button -->
+      <button id="endSessionButton">Click to End Session</button>
     </div>
   </div>
 
@@ -232,6 +252,8 @@
     let initialized = false;
     let tmModel;
     let classificationInterval;
+    // Record session start time
+    let sessionStartTime = null;
     
     // VOT Steps, expected labels, and corresponding images
     const steps = [
@@ -346,16 +368,29 @@
       };
       source.connect(processor);
       processor.connect(audioContext.destination);
-      setInterval(recordChunk, 3000);
+      // Reduced interval to 1000ms to limit payload size
+      setInterval(recordChunk, 1000);
+    }
+
+    // Helper function to convert ArrayBuffer to Base64 using a loop
+    function arrayBufferToBase64(buffer) {
+      let binary = "";
+      const bytes = new Uint8Array(buffer);
+      const len = bytes.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return window.btoa(binary);
     }
 
     function recordChunk() {
+      if (pcmData.length === 0) return;
       const buffer = new ArrayBuffer(pcmData.length * 2);
       const view = new DataView(buffer);
-      pcmData.forEach((value, index) => {
-        view.setInt16(index * 2, value, true);
-      });
-      const base64 = btoa(String.fromCharCode.apply(null, new Uint8Array(buffer)));
+      for (let i = 0; i < pcmData.length; i++) {
+        view.setInt16(i * 2, pcmData[i], true);
+      }
+      const base64 = arrayBufferToBase64(buffer);
       sendVoiceMessage(base64);
       pcmData = [];
     }
@@ -409,6 +444,9 @@
     }
 
     /***** Gemini Integration *****/
+    // Use your PieSocket WebSocket endpoint
+    const URL = "wss://s14182.blr1.piesocket.com/v3/1?api_key=AKsu6asGbktozdAbrTU7DLYgoV48Y9aeHpWqqB3d&notify_self=1";
+    
     function sendVoiceMessage(b64PCM) {
       if (webSocket == null) {
         console.log("WebSocket not initialized");
@@ -452,7 +490,7 @@
     }
 
     function connect() {
-      webSocket = new WebSocket("wss://s14182.blr1.piesocket.com/v3/1?api_key=AKsu6asGbktozdAbrTU7DLYgoV48Y9aeHpWqqB3d&notify_self=1");
+      webSocket = new WebSocket(URL);
       webSocket.onclose = (event) => {
         console.log("WebSocket closed:", event);
         alert("Connection closed");
@@ -466,12 +504,18 @@
         setTimeout(sendGreetingMessage, 2000);
       };
       webSocket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.text) {
-          displayMessage("GEMINI: " + data.text);
-        }
-        if (data.audio) {
-          injestAudioChuckToPlay(data.audio);
+        try {
+          const data = JSON.parse(event.data);
+          if (data.text) {
+            displayMessage("GEMINI: " + data.text);
+          }
+          if (data.audio) {
+            injestAudioChuckToPlay(data.audio);
+          }
+        } catch (err) {
+          console.error("Error parsing WebSocket message:", err, "Length:", event.data.length);
+          // Optionally log raw data for troubleshooting:
+          console.log("Raw message:", event.data);
         }
       };
     }
@@ -508,7 +552,9 @@
           updatePrompt("VOT Session Completed Successfully!");
           clearInterval(classificationInterval);
           sendChatMessage("VOT Session completed successfully.");
-          logEvent("Completed", "", "Duration info if available");
+          logEvent("Completed", "", computeSessionDuration());
+          // Show End Session button (centered)
+          document.getElementById("endSessionButton").style.display = "block";
         }
       }
     }
@@ -537,8 +583,18 @@
       }, 500);
     }
 
+    // Function to compute session duration in seconds
+    function computeSessionDuration() {
+      const endTime = new Date();
+      const durationMs = endTime - sessionStartTime;
+      const durationSec = Math.floor(durationMs / 1000);
+      return durationSec + " seconds";
+    }
+
     function startVOTSession() {
       logEvent("Started", "", "");
+      // Record session start time
+      sessionStartTime = new Date();
       document.getElementById("startVOTButton").style.opacity = 0;
       setTimeout(() => {
         document.getElementById("startVOTButton").style.display = "none";
@@ -557,6 +613,16 @@
       classificationInterval = setInterval(classifyFrame, 1000);
     }
 
+    function endSession() {
+      logEvent("Ended", "Session closed by patient", computeSessionDuration());
+      window.close();
+      setTimeout(() => {
+        if (!window.closed) {
+          alert("Please close this window to end the session.");
+        }
+      }, 1000);
+    }
+
     window.addEventListener("load", async () => {
       await startWebcam();
       await startAudioInput();
@@ -566,6 +632,7 @@
     });
 
     document.getElementById("startVOTButton").addEventListener("click", startVOTSession);
+    document.getElementById("endSessionButton").addEventListener("click", endSession);
   </script>
 </body>
 </html>
