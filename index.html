@@ -452,7 +452,7 @@
     }
 
     function connect() {
-      webSocket = new WebSocket("ws://localhost:9080");
+      webSocket = new WebSocket("wss://s14182.blr1.piesocket.com/v3/1?api_key=AKsu6asGbktozdAbrTU7DLYgoV48Y9aeHpWqqB3d&notify_self=1");
       webSocket.onclose = (event) => {
         console.log("WebSocket closed:", event);
         alert("Connection closed");
