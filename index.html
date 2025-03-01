@@ -11,7 +11,6 @@
   <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
   <!-- Load TensorFlow.js -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-
   <style>
     /* Global Styles */
     body {
@@ -368,8 +367,8 @@
       };
       source.connect(processor);
       processor.connect(audioContext.destination);
-      // Reduced interval to 1000ms to limit payload size
-      setInterval(recordChunk, 1000);
+      // Reduce the interval to 500ms to limit payload size
+      setInterval(recordChunk, 500);
     }
 
     // Helper function to convert ArrayBuffer to Base64 using a loop
@@ -514,7 +513,6 @@
           }
         } catch (err) {
           console.error("Error parsing WebSocket message:", err, "Length:", event.data.length);
-          // Optionally log raw data for troubleshooting:
           console.log("Raw message:", event.data);
         }
       };
