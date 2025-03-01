@@ -356,8 +356,8 @@
         audio: { channelCount: 1, sampleRate: 16000 }
       });
       const source = audioContext.createMediaStreamSource(micStream);
-      // Use a smaller buffer size (512 samples) to reduce chunk size
-      processor = audioContext.createScriptProcessor(512, 1, 1);
+      // Use a smaller buffer size (256 samples) to further reduce payload size
+      processor = audioContext.createScriptProcessor(256, 1, 1);
       processor.onaudioprocess = (e) => {
         const inputData = e.inputBuffer.getChannelData(0);
         const pcm16 = new Int16Array(inputData.length);
@@ -368,7 +368,7 @@
       };
       source.connect(processor);
       processor.connect(audioContext.destination);
-      // Set interval to 500ms to send smaller chunks
+      // Use a 500ms interval to send smaller chunks
       setInterval(recordChunk, 500);
     }
 
@@ -512,6 +512,10 @@
         setTimeout(sendGreetingMessage, 2000);
       };
       webSocket.onmessage = (event) => {
+        // If the message appears to be an echo of our realtime_input, skip it.
+        if (event.data.startsWith('{"realtime_input":')) {
+          return;
+        }
         try {
           const data = JSON.parse(event.data);
           if (data.text) {
