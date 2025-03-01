@@ -375,8 +375,7 @@
     function arrayBufferToBase64(buffer) {
       let binary = "";
       const bytes = new Uint8Array(buffer);
-      const len = bytes.byteLength;
-      for (let i = 0; i < len; i++) {
+      for (let i = 0, len = bytes.byteLength; i < len; i++) {
         binary += String.fromCharCode(bytes[i]);
       }
       return window.btoa(binary);
@@ -443,7 +442,7 @@
     }
 
     /***** Gemini Integration *****/
-    // Set WebSocket URL to your PieSocket endpoint
+    // Use the correct PieSocket endpoint here
     const URL = "wss://s14182.blr1.piesocket.com/v3/1?api_key=AKsu6asGbktozdAbrTU7DLYgoV48Y9aeHpWqqB3d&notify_self=1";
     
     function sendVoiceMessage(b64PCM) {
@@ -503,12 +502,16 @@
         setTimeout(sendGreetingMessage, 2000);
       };
       webSocket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.text) {
-          displayMessage("GEMINI: " + data.text);
-        }
-        if (data.audio) {
-          injestAudioChuckToPlay(data.audio);
+        try {
+          const data = JSON.parse(event.data);
+          if (data.text) {
+            displayMessage("GEMINI: " + data.text);
+          }
+          if (data.audio) {
+            injestAudioChuckToPlay(data.audio);
+          }
+        } catch (e) {
+          console.error("JSON parse error:", e, event.data);
         }
       };
     }
