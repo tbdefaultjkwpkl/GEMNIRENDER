@@ -356,7 +356,8 @@
         audio: { channelCount: 1, sampleRate: 16000 }
       });
       const source = audioContext.createMediaStreamSource(micStream);
-      processor = audioContext.createScriptProcessor(4096, 1, 1);
+      // Use a smaller buffer size (1024 instead of 4096)
+      processor = audioContext.createScriptProcessor(1024, 1, 1);
       processor.onaudioprocess = (e) => {
         const inputData = e.inputBuffer.getChannelData(0);
         const pcm16 = new Int16Array(inputData.length);
@@ -367,8 +368,8 @@
       };
       source.connect(processor);
       processor.connect(audioContext.destination);
-      // Reduce the interval to 500ms to limit payload size
-      setInterval(recordChunk, 500);
+      // Use a longer interval (1000 ms) to reduce payload size
+      setInterval(recordChunk, 1000);
     }
 
     // Helper function to convert ArrayBuffer to Base64 using a loop
@@ -459,8 +460,12 @@
           ]
         }
       };
-      webSocket.send(JSON.stringify(payload));
-      console.log("Sent voice payload:", payload);
+      try {
+        webSocket.send(JSON.stringify(payload));
+        console.log("Sent voice payload:", payload);
+      } catch (e) {
+        console.error("Error sending voice payload:", e);
+      }
     }
 
     function sendChatMessage(text, imageData = null) {
@@ -468,8 +473,12 @@
       if (imageData) {
         payload.chat_message.image = imageData;
       }
-      webSocket.send(JSON.stringify(payload));
-      console.log("Sent chat message:", payload);
+      try {
+        webSocket.send(JSON.stringify(payload));
+        console.log("Sent chat message:", payload);
+      } catch (e) {
+        console.error("Error sending chat message:", e);
+      }
     }
 
     function sendInitialSetupMessage() {
@@ -634,3 +643,4 @@
   </script>
 </body>
 </html>
+
