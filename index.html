@@ -356,8 +356,8 @@
         audio: { channelCount: 1, sampleRate: 16000 }
       });
       const source = audioContext.createMediaStreamSource(micStream);
-      // Use a smaller buffer size (1024 instead of 4096)
-      processor = audioContext.createScriptProcessor(1024, 1, 1);
+      // Use a smaller buffer size (512 samples) to reduce chunk size
+      processor = audioContext.createScriptProcessor(512, 1, 1);
       processor.onaudioprocess = (e) => {
         const inputData = e.inputBuffer.getChannelData(0);
         const pcm16 = new Int16Array(inputData.length);
@@ -368,8 +368,8 @@
       };
       source.connect(processor);
       processor.connect(audioContext.destination);
-      // Use a longer interval (1000 ms) to reduce payload size
-      setInterval(recordChunk, 1000);
+      // Set interval to 500ms to send smaller chunks
+      setInterval(recordChunk, 500);
     }
 
     // Helper function to convert ArrayBuffer to Base64 using a loop
@@ -643,4 +643,3 @@
   </script>
 </body>
 </html>
-
