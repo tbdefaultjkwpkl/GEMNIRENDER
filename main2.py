@@ -13,7 +13,7 @@ MODEL = "gemini-2.0-flash-exp"  # use your model ID
 client = genai.Client(http_options={'api_version': 'v1alpha'})
 
 # Get the port from the environment variable (default to 9080)
-port = int(os.environ.get("PORT", 9080))
+
 
 # Custom process_request: if the "Sec-WebSocket-Key" header is missing, 
 # assume this is a health check (e.g., HEAD request) and return a simple response.
