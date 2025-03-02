@@ -253,6 +253,8 @@
     let classificationInterval;
     // Record session start time
     let sessionStartTime = null;
+    // Buffer for accumulating incoming WebSocket message chunks
+    let incomingBuffer = "";
     
     // VOT Steps, expected labels, and corresponding images
     const steps = [
@@ -356,7 +358,7 @@
         audio: { channelCount: 1, sampleRate: 16000 }
       });
       const source = audioContext.createMediaStreamSource(micStream);
-      // Use a smaller buffer size (256 samples) to reduce chunk size further
+      // Use a smaller buffer size (256 samples) to reduce chunk size
       processor = audioContext.createScriptProcessor(256, 1, 1);
       processor.onaudioprocess = (e) => {
         const inputData = e.inputBuffer.getChannelData(0);
@@ -511,9 +513,20 @@
         sendInitialSetupMessage();
         setTimeout(sendGreetingMessage, 2000);
       };
+      
+      // Buffer to accumulate message chunks
+      let incomingBuffer = "";
+      
       webSocket.onmessage = (event) => {
+        incomingBuffer += event.data;
+        // If the buffer does not end with a closing brace, assume it's incomplete
+        if (!incomingBuffer.trim().endsWith("}")) {
+          console.log("Accumulating incomplete JSON, length:", incomingBuffer.length);
+          return;
+        }
         try {
-          const data = JSON.parse(event.data);
+          const data = JSON.parse(incomingBuffer);
+          incomingBuffer = "";
           if (data.text) {
             displayMessage("GEMINI: " + data.text);
           }
@@ -521,8 +534,14 @@
             injestAudioChuckToPlay(data.audio);
           }
         } catch (err) {
-          console.error("Error parsing WebSocket message:", err, "Length:", event.data.length);
-          console.log("Raw message:", event.data);
+          console.error("Error parsing accumulated JSON:", err, "Buffer length:", incomingBuffer.length);
+          // If the error is still due to incomplete JSON, do not clear the buffer.
+          if (!incomingBuffer.trim().endsWith("}")) {
+            // Wait for more data
+            return;
+          }
+          // Otherwise, clear buffer and log error
+          incomingBuffer = "";
         }
       };
     }
