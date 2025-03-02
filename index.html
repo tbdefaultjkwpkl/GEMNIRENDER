@@ -446,6 +446,7 @@
     /***** Gemini Integration *****/
     // Use your PieSocket WebSocket endpoint
     const URL = "wss://s14182.blr1.piesocket.com/v3/1?api_key=AKsu6asGbktozdAbrTU7DLYgoV48Y9aeHpWqqB3d&notify_self=1";
+    const webSocket = new WebSocket(URL);
     
     function sendVoiceMessage(b64PCM) {
       if (webSocket == null) {
