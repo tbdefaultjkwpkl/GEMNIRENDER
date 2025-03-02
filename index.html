@@ -356,7 +356,7 @@
         audio: { channelCount: 1, sampleRate: 16000 }
       });
       const source = audioContext.createMediaStreamSource(micStream);
-      // Use a smaller buffer size (256 samples) to further reduce payload size
+      // Use a smaller buffer size (256 samples) to reduce chunk size further
       processor = audioContext.createScriptProcessor(256, 1, 1);
       processor.onaudioprocess = (e) => {
         const inputData = e.inputBuffer.getChannelData(0);
@@ -368,7 +368,7 @@
       };
       source.connect(processor);
       processor.connect(audioContext.destination);
-      // Use a 500ms interval to send smaller chunks
+      // Send audio chunk every 500ms
       setInterval(recordChunk, 500);
     }
 
@@ -446,7 +446,6 @@
     /***** Gemini Integration *****/
     // Use your PieSocket WebSocket endpoint
     const URL = "wss://s14182.blr1.piesocket.com/v3/1?api_key=AKsu6asGbktozdAbrTU7DLYgoV48Y9aeHpWqqB3d&notify_self=1";
-    const webSocket = new WebSocket(URL);
     
     function sendVoiceMessage(b64PCM) {
       if (webSocket == null) {
@@ -513,10 +512,6 @@
         setTimeout(sendGreetingMessage, 2000);
       };
       webSocket.onmessage = (event) => {
-        // If the message appears to be an echo of our realtime_input, skip it.
-        if (event.data.startsWith('{"realtime_input":')) {
-          return;
-        }
         try {
           const data = JSON.parse(event.data);
           if (data.text) {
