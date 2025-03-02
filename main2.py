@@ -4,107 +4,88 @@ import os
 import websockets
 from google import genai
 import base64
-import http
 
-# Load API key from environment
-os.environ['GOOGLE_API_KEY'] = 'AIzaSyDDUg7a80PHfYnIGoJKBpaeDVcPDfw8ySg'
-MODEL = "gemini-2.0-flash-exp"  # use your model ID
+# Retrieve your Gemini API key from the environment
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "AIzaSyDDUg7a80PHfYnIGoJKBpaeDVcPDfw8ySg")
+MODEL = "gemini-2.0-flash-exp"  # Update this as required
 
+# Your PieSocket channel URL
+PIE_SOCKET_URL = "wss://s14182.blr1.piesocket.com/v3/1?api_key=AKsu6asGbktozdAbrTU7DLYgoV48Y9aeHpWqqB3d&notify_self=1"
+
+# Initialize the Gemini client (make sure google-genai is installed)
 client = genai.Client(http_options={'api_version': 'v1alpha'})
 
-# Get the port from the environment variable (default to 9080)
-
-
-# Custom process_request: if the "Sec-WebSocket-Key" header is missing, 
-# assume this is a health check (e.g., HEAD request) and return a simple response.
-async def process_request(path, request_headers):
-    if "Sec-WebSocket-Key" not in request_headers:
-        return http.HTTPStatus.OK, [
-            ("Content-Type", "text/plain"),
-            ("Content-Length", "2")
-        ], b"OK"
-
-async def gemini_session_handler(client_websocket: websockets.WebSocketServerProtocol):
-    try:
-        config_message = await client_websocket.recv()
-        config_data = json.loads(config_message)
-        config = config_data.get("setup", {})
-
-        async with client.aio.live.connect(model=MODEL, config=config) as session:
-            print("Connected to Gemini API")
-
-            async def send_to_gemini():
-                try:
-                    async for message in client_websocket:
-                        try:
-                            data = json.loads(message)
-                            if "realtime_input" in data:
-                                for chunk in data["realtime_input"]["media_chunks"]:
-                                    if chunk["mime_type"] == "audio/pcm":
-                                        await session.send({"mime_type": "audio/pcm", "data": chunk["data"]})
-                                    elif chunk["mime_type"] == "image/jpeg":
-                                        await session.send({"mime_type": "image/jpeg", "data": chunk["data"]})
-                            if "chat_message" in data:
-                                chat_text = data["chat_message"].get("text", "")
-                                print("Sending chat text to Gemini:", chat_text)
-                                await session.send({"text": chat_text})
-                                if "image" in data["chat_message"]:
-                                    await session.send({"mime_type": "image/jpeg", "data": data["chat_message"]["image"]})
-                        except Exception as e:
-                            print(f"Error sending to Gemini: {e}")
-                    print("Client connection closed (send)")
-                except Exception as e:
-                    print(f"Error sending to Gemini: {e}")
-                finally:
-                    print("send_to_gemini closed")
-
-            async def receive_from_gemini():
-                try:
-                    while True:
-                        try:
-                            print("Receiving from Gemini...")
-                            async for response in session.receive():
-                                if response.server_content is None:
-                                    print(f"Unhandled server message: {response}")
-                                    continue
-                                model_turn = response.server_content.model_turn
-                                if model_turn:
-                                    for part in model_turn.parts:
-                                        if hasattr(part, 'text') and part.text is not None:
-                                            await client_websocket.send(json.dumps({"text": part.text}))
-                                        elif hasattr(part, 'inline_data') and part.inline_data is not None:
-                                            base64_audio = base64.b64encode(part.inline_data.data).decode('utf-8')
-                                            await client_websocket.send(json.dumps({"audio": base64_audio}))
-                                if response.server_content.turn_complete:
-                                    print("<Turn complete>")
-                        except websockets.exceptions.ConnectionClosedOK:
-                            print("Client connection closed normally (receive)")
+async def process_message(data):
+    """
+    Process incoming data from PieSocket.
+    If it's a chat message, forward it to Gemini and return Gemini's text response.
+    """
+    if "chat_message" in data:
+        chat_text = data["chat_message"].get("text", "").strip()
+        if chat_text:
+            print("Received chat message:", chat_text)
+            try:
+                # Connect to Gemini API
+                async with client.aio.live.connect(model=MODEL, config={}) as session:
+                    await session.send({"text": chat_text})
+                    # For simplicity, take the first text response
+                    async for response in session.receive():
+                        if response.server_content and response.server_content.model_turn:
+                            for part in response.server_content.model_turn.parts:
+                                if hasattr(part, 'text') and part.text:
+                                    print("Gemini replied:", part.text)
+                                    # Return Gemini's reply
+                                    return {"text": part.text}
+                        # If the turn is complete, break out
+                        if response.server_content.turn_complete:
                             break
-                        except Exception as e:
-                            print(f"Error receiving from Gemini: {e}")
-                            break
-                except Exception as e:
-                    print(f"Error receiving from Gemini: {e}")
-                finally:
-                    print("Gemini connection closed (receive)")
+            except Exception as e:
+                print("Error calling Gemini API:", e)
+    return None
 
-            send_task = asyncio.create_task(send_to_gemini())
-            receive_task = asyncio.create_task(receive_from_gemini())
-            await asyncio.gather(send_task, receive_task)
+async def listen_and_process():
+    """
+    Connects to the PieSocket channel and listens for incoming messages.
+    For each chat message received, processes it and publishes the response.
+    """
+    async with websockets.connect(PIE_SOCKET_URL) as ws:
+        print("Connected to PieSocket as Gemini bot")
+        # Optionally, send a setup message if required by Gemini.
+        await ws.send(json.dumps({"setup": {"generation_config": {"response_modalities": ["AUDIO"]}}}))
+        while True:
+            try:
+                message = await ws.recv()
+                try:
+                    data = json.loads(message)
+                except Exception as parse_err:
+                    print("Error parsing incoming message:", parse_err)
+                    continue
 
-    except Exception as e:
-        print(f"Error in Gemini session: {e}")
-    finally:
-        print("Gemini session closed.")
+                # Optionally ignore messages that the bot itself sent (if needed)
+                # For demo purposes, if the message has a key "from_bot", skip processing.
+                if data.get("from_bot"):
+                    continue
+
+                # Process chat messages
+                if "chat_message" in data:
+                    response_payload = await process_message(data)
+                    if response_payload:
+                        # Mark this message as coming from the bot
+                        response_payload["from_bot"] = True
+                        await ws.send(json.dumps(response_payload))
+                        print("Sent Gemini response:", response_payload)
+            except Exception as e:
+                print("Error in PieSocket message loop:", e)
+                await asyncio.sleep(5)  # Retry delay
 
 async def main():
-    async with websockets.serve(
-        gemini_session_handler, "0.0.0.0", port,
-        process_request=process_request,
-        ping_interval=20, ping_timeout=20
-    ):
-        print(f"Running websocket server on port {port}...")
-        await asyncio.Future()  # Keep the server running indefinitely
+    # Continuously try to connect to PieSocket
+    while True:
+        try:
+            await listen_and_process()
+        except Exception as e:
+            print("Connection error, retrying in 5 seconds:", e)
+            await asyncio.sleep(5)
 
 if __name__ == "__main__":
     asyncio.run(main())
